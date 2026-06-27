@@ -1,0 +1,43 @@
+# ─── Agent Definitions ─────────────────────────────────────────────────────────
+# Each agent has a Core Specialty (70%) and an Audit Mandate (30%).
+# agent_type must match a @register_agent() decorated class.
+
+agents:
+  - agent_id: tech_lead
+    agent_type: tech_lead
+    name: "Tech Lead"
+    core_specialty: "Database optimization, backend architecture, execution limits"
+    audit_constraints:
+      - constraint_01
+      - constraint_03
+
+  - agent_id: product_manager
+    agent_type: product_manager
+    name: "Product Manager"
+    core_specialty: "Feature prioritisation, user value metrics, business ROI"
+    audit_constraints:
+      - constraint_01
+
+  - agent_id: qa_engineer
+    agent_type: qa_engineer
+    name: "QA Engineer"
+    core_specialty: "Edge-case identification, unit test parameters, error handling"
+    audit_constraints:
+      - constraint_03
+
+  - agent_id: security_auditor
+    agent_type: security_auditor
+    name: "Security Auditor"
+    core_specialty: "Threat modeling, vulnerability checking, access control"
+    audit_constraints:
+      - constraint_02
+
+# ─── Pipeline Configuration ────────────────────────────────────────────────────
+pipeline:
+  execution_order:
+    - tech_lead
+    - product_manager
+    - qa_engineer
+    - security_auditor
+  min_peer_validations: 2
+  max_retry_on_reject: 1

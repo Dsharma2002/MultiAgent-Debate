@@ -1,0 +1,24 @@
+# ─── Shared Constraints (Hard Boundaries & Guardrails) ─────────────────────────
+# These are immutable business rules that every evidence entry must satisfy.
+# Rule logic is implemented in Python; this file provides metadata.
+
+constraints:
+  - constraint_id: constraint_01
+    description: "Total budget allocation must never exceed $5,000"
+    applies_to_agents: ["*"]
+    severity: critical
+    enforcement: automatic
+
+  - constraint_id: constraint_02
+    description: "High-security data inputs cannot be handled by Agent 3 (UX/QA)"
+    applies_to_agents: ["*"]
+    severity: critical
+    enforcement: automatic
+    notes: "Prevents qa_engineer from handling security_classification: high/critical/confidential"
+
+  - constraint_id: constraint_03
+    description: "No proposal can move to output without a minimum of 2 peer validations"
+    applies_to_agents: ["*"]
+    severity: high
+    enforcement: pipeline
+    notes: "Enforced at the VerificationGate level during peer audit phase"
