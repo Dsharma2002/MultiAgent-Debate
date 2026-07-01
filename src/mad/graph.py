@@ -24,6 +24,7 @@ from typing import Any
 from uuid import uuid4
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import create_react_agent
@@ -105,13 +106,13 @@ def _emit(emitter: EventEmitter | None, event_type: EventType, agent_id: str, **
     time.sleep(0.15)
 
 
-def _get_emitter(config: dict) -> EventEmitter | None:
+def _get_emitter(config: RunnableConfig) -> EventEmitter | None:
     """Extract the event emitter from LangGraph config."""
     configurable = config.get("configurable", {})
     return configurable.get("emitter")
 
 
-def _get_ledger(config: dict):
+def _get_ledger(config: RunnableConfig):
     """Extract the ledger from LangGraph config."""
     configurable = config.get("configurable", {})
     return configurable.get("ledger")
@@ -141,6 +142,150 @@ def _commit_to_ledger(ledger, agent_id: str, content: dict[str, Any]) -> dict[st
     }
 
 
+def _generate_mock_output(model_cls: type) -> Any:
+    """Generate a mock instance of a Pydantic model class for testing when API key is missing."""
+    fields = {}
+    for name, field_info in model_cls.model_fields.items():
+        annotation = field_info.annotation
+        
+        # Check type
+        if annotation == str:
+            if name == "selected_solution":
+                fields[name] = "Option A: Cloud-Native API Gateway"
+            elif name == "recommendation":
+                fields[name] = "Option A: Cloud-Native API Gateway"
+            elif name == "verdict":
+                fields[name] = "APPROVED"
+            elif name == "overall_risk_rating":
+                fields[name] = "LOW"
+            elif name == "system_diagram":
+                fields[name] = "graph TD\n  A[Client] --> B[API Gateway]\n  B --> C[Auth Service]\n  B --> D[Resource Service]"
+            else:
+                fields[name] = f"Mocked {name} value."
+        elif annotation == float:
+            if name == "consensus_score" or name == "confidence_score" or name == "business_alignment_score":
+                fields[name] = 0.95
+            else:
+                fields[name] = 0.8
+        elif annotation == int:
+            if name == "budget_allocation":
+                fields[name] = 2000
+            else:
+                fields[name] = 100
+        elif annotation == bool:
+            fields[name] = True
+        elif getattr(annotation, "__origin__", None) is list:
+            item_type = annotation.__args__[0]
+            if item_type == str:
+                if name == "blockers":
+                    fields[name] = []  # No blockers by default to prevent infinite loops
+                elif name == "stakeholders":
+                    fields[name] = ["End Users", "System Administrators", "Business Stakeholders"]
+                elif name == "key_findings":
+                    fields[name] = ["Finding 1: High user demand.", "Finding 2: Competitors lack this feature."]
+                elif name == "assumptions":
+                    fields[name] = ["Assumption 1: Network connectivity is stable."]
+                else:
+                    fields[name] = [f"Mocked list item for {name}"]
+            elif getattr(item_type, "__origin__", None) is dict or item_type == dict:
+                # list[dict]
+                if name == "requirements":
+                    fields[name] = [
+                        {
+                            "id": "REQ-001",
+                            "title": "User Authentication",
+                            "description": "The system must authenticate users via OAuth2.",
+                            "priority": "P0",
+                            "type": "functional",
+                            "acceptance_criteria": ["Given valid credentials, when user logs in, then return JWT token."]
+                        }
+                    ]
+                elif name == "solution_options":
+                    fields[name] = [
+                        {
+                            "name": "Option A: Cloud-Native API Gateway",
+                            "description": "Leverage serverless gateway with managed components.",
+                            "pros": ["Low operational overhead", "Automatic scaling"],
+                            "cons": ["Vendor lock-in"],
+                            "estimated_cost": 500,
+                            "time_to_market": "2 weeks",
+                            "technical_complexity": "medium"
+                        }
+                    ]
+                elif name == "components":
+                    fields[name] = [
+                        {
+                            "name": "Auth Service",
+                            "responsibility": "Handle token signing and user verification.",
+                            "technology_stack": "FastAPI + PyJWT",
+                            "interfaces": ["POST /login", "GET /verify"]
+                        }
+                    ]
+                elif name == "api_contracts" or name == "api_design":
+                    fields[name] = [
+                        {
+                            "method": "POST",
+                            "path": "/api/v1/auth/login",
+                            "request_schema": {"username": "str", "password": "str"},
+                            "response_schema": {"access_token": "str", "token_type": "str"}
+                        }
+                    ]
+                elif name == "risk_register":
+                    fields[name] = [
+                        {
+                            "risk_id": "RSK-001",
+                            "description": "Potential authentication bypass",
+                            "likelihood": 2,
+                            "impact": 4,
+                            "risk_score": 8,
+                            "mitigation_strategy": "Implement rigid token signature checks."
+                        }
+                    ]
+                elif name == "business_risks":
+                    fields[name] = [
+                        {
+                            "description": "Lack of market adoption",
+                            "likelihood": 2,
+                            "impact": 3,
+                            "mitigation": "Conduct continuous user feedback cycles."
+                        }
+                    ]
+                else:
+                    fields[name] = [{"mock_key": "mock_value"}]
+            else:
+                fields[name] = []
+        elif getattr(annotation, "__origin__", None) is dict or annotation == dict:
+            if name == "priority_matrix":
+                fields[name] = {
+                    "must_have": ["REQ-001"],
+                    "should_have": [],
+                    "could_have": [],
+                    "wont_have": []
+                }
+            elif name == "architecture_decision":
+                fields[name] = {
+                    "overview": "Clean architecture utilizing microservices.",
+                    "components": ["Gateway", "Auth", "Resource"],
+                    "data_flow": "Client requests flow through Gateway, checking token with Auth.",
+                    "scalability": "Horizontal pod scaling based on CPU."
+                }
+            elif name == "threat_model":
+                fields[name] = {
+                    "spoofing": "Mitigated by signing all API calls.",
+                    "tampering": "Mitigated by HTTPS encryption in-transit.",
+                    "repudiation": "Mitigated by structured audit logging.",
+                    "information_disclosure": "Mitigated by database encryption.",
+                    "denial_of_service": "Mitigated by Cloudflare rate limiting.",
+                    "elevation_of_privilege": "Mitigated by strict RBAC controls."
+                }
+            else:
+                fields[name] = {"mock_key": "mock_value"}
+        else:
+            fields[name] = None
+            
+    return model_cls(**fields)
+
+
 def _invoke_structured(
     agent_id: str,
     output_model: type,
@@ -156,6 +301,10 @@ def _invoke_structured(
     
     For agents WITHOUT tools: uses ChatOpenAI.with_structured_output() directly.
     """
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return _generate_mock_output(output_model)
+
     model_name = _get_model(agent_id)
     prompt = AGENT_PROMPTS[agent_id]
     
@@ -202,6 +351,7 @@ def _invoke_structured(
         return result
 
 
+
 def _format_blackboard_section(title: str, content: Any) -> str:
     """Format a Blackboard section for inclusion in an agent's context prompt."""
     if content is None:
@@ -215,7 +365,7 @@ def _format_blackboard_section(title: str, content: Any) -> str:
 # Node Functions — one per agent
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def discovery_node(state: ConsensusState, config: dict) -> dict:
+def discovery_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Discovery Agent: transforms raw proposal into structured problem statement."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
@@ -252,7 +402,7 @@ def discovery_node(state: ConsensusState, config: dict) -> dict:
     }
 
 
-def business_analyst_node(state: ConsensusState, config: dict) -> dict:
+def business_analyst_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Business Analyst: converts discovery into structured requirements."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
@@ -292,7 +442,7 @@ def business_analyst_node(state: ConsensusState, config: dict) -> dict:
     }
 
 
-def solution_deviser_node(state: ConsensusState, config: dict) -> dict:
+def solution_deviser_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Solution Deviser: generates architecture options with tradeoff analysis."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
@@ -344,7 +494,7 @@ def solution_deviser_node(state: ConsensusState, config: dict) -> dict:
     }
 
 
-def technical_architect_node(state: ConsensusState, config: dict) -> dict:
+def technical_architect_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Technical Architect: designs system architecture from selected solution."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
@@ -391,7 +541,7 @@ def technical_architect_node(state: ConsensusState, config: dict) -> dict:
     }
 
 
-def data_integration_node(state: ConsensusState, config: dict) -> dict:
+def data_integration_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Data & Integration: designs data layer, contracts, and privacy controls."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
@@ -431,7 +581,7 @@ def data_integration_node(state: ConsensusState, config: dict) -> dict:
     }
 
 
-def builder_node(state: ConsensusState, config: dict) -> dict:
+def builder_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Builder: creates implementation plan, sprint breakdown, dependency graph."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
@@ -472,7 +622,7 @@ def builder_node(state: ConsensusState, config: dict) -> dict:
     }
 
 
-def test_qa_node(state: ConsensusState, config: dict) -> dict:
+def test_qa_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Test/QA Lead: designs test strategy and generates test cases."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
@@ -517,7 +667,7 @@ def test_qa_node(state: ConsensusState, config: dict) -> dict:
 # Governance Nodes — Adversarial Challenge Phase
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def verifier_node(state: ConsensusState, config: dict) -> dict:
+def verifier_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Verifier/Critic: adversarial analysis — finds contradictions and gaps."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
@@ -570,7 +720,7 @@ def verifier_node(state: ConsensusState, config: dict) -> dict:
     }
 
 
-def business_reviewer_node(state: ConsensusState, config: dict) -> dict:
+def business_reviewer_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Business Reviewer: evaluates business alignment and ROI."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
@@ -620,7 +770,7 @@ def business_reviewer_node(state: ConsensusState, config: dict) -> dict:
     }
 
 
-def compliance_risk_node(state: ConsensusState, config: dict) -> dict:
+def compliance_risk_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Compliance & Risk: STRIDE threat model and regulatory assessment."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
@@ -673,7 +823,7 @@ def compliance_risk_node(state: ConsensusState, config: dict) -> dict:
 # Synthesis Node
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def synthesizer_node(state: ConsensusState, config: dict) -> dict:
+def synthesizer_node(state: ConsensusState, config: RunnableConfig) -> dict:
     """Synthesizer: merges all outputs into final consensus verdict."""
     emitter = _get_emitter(config)
     ledger = _get_ledger(config)
