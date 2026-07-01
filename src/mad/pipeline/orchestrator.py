@@ -140,10 +140,7 @@ class PipelineOrchestrator:
             )
 
         # Import builtins to trigger @register_agent decorators
-        import mad.agents.builtins.tech_lead  # noqa: F401
-        import mad.agents.builtins.product_manager  # noqa: F401
-        import mad.agents.builtins.qa_engineer  # noqa: F401
-        import mad.agents.builtins.security_auditor  # noqa: F401
+        import mad.agents.builtins.enterprise  # noqa: F401
 
         # Load agents
         agents_path = f"{config_dir}/agents.yaml"
@@ -188,64 +185,69 @@ class PipelineOrchestrator:
         """
         Execute the full pipeline with the given task context.
 
-        Each agent processes sequentially. No agent begins until
-        the previous step's entry has [Verified Status: True].
+        Uses a state machine to allow Governance agents (Verifier, Reviewer, Risk)
+        to loop the pipeline back to upstream agents if blockers are found.
         """
         logger.info("=" * 60)
-        logger.info("PIPELINE EXECUTION STARTED")
+        logger.info("PIPELINE EXECUTION STARTED (ENTERPRISE WORKFLOW)")
         logger.info(f"Agents: {[a.agent_id for a in self._agents]}")
-        logger.info(f"Context: {context}")
         logger.info("=" * 60)
 
         step_results: list[PipelineStepResult] = []
         pipeline_errors: list[str] = []
         all_success = True
 
-        for i, agent in enumerate(self._agents):
+        current_index = 0
+        while current_index < len(self._agents):
+            agent = self._agents[current_index]
             logger.info(f"\n{'─' * 40}")
-            logger.info(
-                f"STEP {i + 1}/{len(self._agents)}: {agent.name} ({agent.agent_id})"
-            )
+            logger.info(f"STEP {current_index + 1}/{len(self._agents)}: {agent.name} ({agent.agent_id})")
             logger.info(f"{'─' * 40}")
 
-            # Build the context for this agent (original + ledger state)
             agent_context = self._build_agent_context(context, agent)
-
-            # Get peer agents (all agents except the current one)
             peer_agents = [a for a in self._agents if a.agent_id != agent.agent_id]
 
-            # Execute with retry loop
             step_result = self._execute_agent_step(
                 agent=agent,
                 context=agent_context,
                 peer_agents=peer_agents,
             )
-
             step_results.append(step_result)
 
-            if not step_result.success:
-                all_success = False
-                error_msg = (
-                    f"Agent '{agent.agent_id}' failed after "
-                    f"{step_result.attempt} attempt(s)"
-                )
-                pipeline_errors.append(error_msg)
-                logger.error(f"[Pipeline] {error_msg}")
+            # Check if this agent generated blockers (e.g. Governance Agents)
+            # In Phase 1 we look at the last ledger entry added by this agent
+            last_entry = self._ledger.get_latest()
+            has_blockers = False
+            if last_entry and last_entry.author_agent_id == agent.agent_id:
+                blockers = last_entry.content.get("blockers", [])
+                if blockers:
+                    has_blockers = True
+                    logger.warning(f"[{agent.agent_id}] found {len(blockers)} blockers: {blockers}")
 
-                # Pipeline continues even if one agent fails
-                # (the next agent reads whatever is in the ledger)
-                logger.info(
-                    f"[Pipeline] Continuing despite failure at step {i + 1}"
-                )
+            if not step_result.success or has_blockers:
+                if agent.agent_id in ["verifier", "business_reviewer", "compliance_risk"]:
+                    # Governance loopback!
+                    logger.warning(f"[Pipeline] {agent.name} threw a blocker. Looping back to Solution Deviser.")
+                    # Jump back to solution_deviser (index 2)
+                    current_index = 2
+                    continue
+                else:
+                    all_success = False
+                    error_msg = f"Agent '{agent.agent_id}' failed."
+                    pipeline_errors.append(error_msg)
+                    logger.error(f"[Pipeline] {error_msg}")
+                    # If a core agent fails completely, we break out for now
+                    break
 
-        # Create final snapshot
+            # Proceed to next agent
+            current_index += 1
+
         snapshot = self._ledger.snapshot()
 
         logger.info(f"\n{'=' * 60}")
         logger.info("PIPELINE EXECUTION COMPLETE")
         logger.info(f"Success: {all_success}")
-        logger.info(f"Committed: {snapshot.verified_entries}/{len(self._agents)}")
-        logger.info(f"Chain valid: {snapshot.chain_valid}")
+        logger.info(f"Committed: {snapshot.verified_entries}")
         logger.info(f"{'=' * 60}")
 
         return PipelineResult(

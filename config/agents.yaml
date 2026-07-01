@@ -1,43 +1,85 @@
 # ─── Agent Definitions ─────────────────────────────────────────────────────────
-# Each agent has a Core Specialty (70%) and an Audit Mandate (30%).
-# agent_type must match a @register_agent() decorated class.
 
 agents:
-  - agent_id: tech_lead
-    agent_type: tech_lead
-    name: "Tech Lead"
-    core_specialty: "Database optimization, backend architecture, execution limits"
-    audit_constraints:
-      - constraint_01
-      - constraint_03
+  - agent_id: discovery
+    agent_type: discovery
+    name: "Discovery Agent"
+    core_specialty: "Gather the business problem and identify stakeholders."
+    audit_constraints: ["constraint_01"]
 
-  - agent_id: product_manager
-    agent_type: product_manager
-    name: "Product Manager"
-    core_specialty: "Feature prioritisation, user value metrics, business ROI"
-    audit_constraints:
-      - constraint_01
+  - agent_id: business_analyst
+    agent_type: business_analyst
+    name: "Business Analyst Agent"
+    core_specialty: "Convert discovery into requirements and user stories."
+    audit_constraints: ["constraint_01"]
 
-  - agent_id: qa_engineer
-    agent_type: qa_engineer
-    name: "QA Engineer"
-    core_specialty: "Edge-case identification, unit test parameters, error handling"
-    audit_constraints:
-      - constraint_03
+  - agent_id: solution_deviser
+    agent_type: solution_deviser
+    name: "Solution Deviser Agent"
+    core_specialty: "Generate solution options and tradeoffs."
+    audit_constraints: ["constraint_01"]
 
-  - agent_id: security_auditor
-    agent_type: security_auditor
-    name: "Security Auditor"
-    core_specialty: "Threat modeling, vulnerability checking, access control"
-    audit_constraints:
-      - constraint_02
+  - agent_id: technical_architect
+    agent_type: technical_architect
+    name: "Technical Architect Agent"
+    core_specialty: "Design system APIs and modules."
+    audit_constraints: ["constraint_01"]
+
+  - agent_id: data_integration
+    agent_type: data_integration
+    name: "Data / Integration Agent"
+    core_specialty: "Data contracts, sources, and permissions."
+    audit_constraints: ["constraint_01"]
+
+  - agent_id: builder
+    agent_type: builder
+    name: "Builder Agent"
+    core_specialty: "Implement approved design."
+    audit_constraints: ["constraint_01"]
+
+  - agent_id: test_qa
+    agent_type: test_qa
+    name: "Test / QA Agent"
+    core_specialty: "Write and run tests."
+    audit_constraints: ["constraint_01"]
+
+  - agent_id: verifier
+    agent_type: verifier
+    name: "Verifier / Critic Agent"
+    core_specialty: "Challenge assumptions and find contradictions."
+    audit_constraints: ["constraint_01"]
+
+  - agent_id: business_reviewer
+    agent_type: business_reviewer
+    name: "Business Reviewer Agent"
+    core_specialty: "Check implementation against business needs."
+    audit_constraints: ["constraint_01"]
+
+  - agent_id: compliance_risk
+    agent_type: compliance_risk
+    name: "Compliance / Risk Agent"
+    core_specialty: "Check governance and privacy constraints."
+    audit_constraints: ["constraint_01"]
+
+  - agent_id: synthesizer
+    agent_type: synthesizer
+    name: "Synthesizer / Program Lead"
+    core_specialty: "Merge outputs and resolve disagreements."
+    audit_constraints: ["constraint_01"]
 
 # ─── Pipeline Configuration ────────────────────────────────────────────────────
 pipeline:
   execution_order:
-    - tech_lead
-    - product_manager
-    - qa_engineer
-    - security_auditor
-  min_peer_validations: 2
+    - discovery
+    - business_analyst
+    - solution_deviser
+    - technical_architect
+    - data_integration
+    - builder
+    - test_qa
+    - verifier
+    - business_reviewer
+    - compliance_risk
+    - synthesizer
+  min_peer_validations: 1
   max_retry_on_reject: 1

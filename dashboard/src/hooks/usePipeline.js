@@ -50,14 +50,39 @@ function pipelineReducer(state, action) {
       };
     }
 
-    case 'draft_created':
+    case 'agent_thinking':
+      // Remove any existing thinking indicator for this agent
+      const cleanFeed = state.debateFeed ? state.debateFeed.filter(e => !(e.type === 'thinking' && e.agentId === payload.agent_id)) : [];
       return {
         ...state,
-        drafts: {
-          ...state.drafts,
-          [payload.agent_id]: payload.data.content,
-        },
         events: [...state.events, { ...payload, _ts: Date.now() }],
+        debateFeed: [...cleanFeed, {
+          id: payload.event_id,
+          type: 'thinking',
+          agentId: payload.agent_id,
+          agentName: payload.agent_name,
+          target: payload.data.target,
+          _ts: Date.now()
+        }]
+      };
+
+    case 'agent_proposal':
+    case 'judge_synthesis':
+    case 'agent_objection':
+    case 'agent_support':
+      // Remove the thinking indicator for this agent
+      const feedWithoutThinking = state.debateFeed ? state.debateFeed.filter(e => !(e.type === 'thinking' && e.agentId === payload.agent_id)) : [];
+      return {
+        ...state,
+        events: [...state.events, { ...payload, _ts: Date.now() }],
+        debateFeed: [...feedWithoutThinking, {
+          id: payload.event_id,
+          type: type.replace('agent_', ''),
+          agentId: payload.agent_id,
+          agentName: payload.agent_name,
+          data: payload.data,
+          _ts: Date.now()
+        }]
       };
 
     case 'vocab_check':
@@ -81,27 +106,6 @@ function pipelineReducer(state, action) {
         peerAudits: [],
         events: [...state.events, { ...payload, _ts: Date.now() }],
       };
-
-    case 'peer_audit_result': {
-      const audit = {
-        auditorId: payload.data.auditor_id,
-        auditorName: payload.data.auditor_name,
-        approved: payload.data.approved,
-        reasons: payload.data.reasons,
-      };
-      const newAudits = [...state.peerAudits, audit];
-      const allDone = newAudits.length >= 3;
-      const allPassed = allDone && newAudits.filter((a) => a.approved).length >= 2;
-      return {
-        ...state,
-        peerAudits: newAudits,
-        gateChecks: {
-          ...state.gateChecks,
-          peer: allDone ? allPassed : 'checking',
-        },
-        events: [...state.events, { ...payload, _ts: Date.now() }],
-      };
-    }
 
     case 'gate_decision': {
       const isCommit = payload.data.decision === 'COMMIT';

@@ -1,57 +1,57 @@
 /* ══════════════════════════════════════════════════════════════════════════════
    MAD Dashboard — Design System
-   Premium dark-mode dashboard with glassmorphism, micro-animations, and
-   agent-specific identity colors.
+   Sophisticated dark-mode dashboard with monochrome zinc aesthetic, refined
+   Plus Jakarta Sans typography, and clean status indicators.
    ══════════════════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ─── Design Tokens ──────────────────────────────────────────────────────────── */
 :root {
   color-scheme: dark;
 
   /* Background */
-  --bg-deep: #060a14;
-  --bg-primary: #0a0e1a;
-  --bg-surface: #0f1424;
-  --bg-elevated: #151b2e;
-  --bg-hover: #1a2138;
+  --bg-deep: #09090b;
+  --bg-primary: #09090b;
+  --bg-surface: #18181b;
+  --bg-elevated: #27272a;
+  --bg-hover: #3f3f46;
 
   /* Glass */
-  --glass-bg: rgba(15, 20, 36, 0.65);
-  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-bg: rgba(24, 24, 27, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.04);
   --glass-blur: 20px;
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.01);
 
-  /* Accent */
-  --accent-cyan: #00e5ff;
-  --accent-teal: #00bfa5;
-  --accent-gold: #ffd600;
-  --accent-magenta: #ff006e;
-  --accent-purple: #b388ff;
-  --accent-blue: #448aff;
+  /* Accent (Soft Monochrome Hues) */
+  --accent-cyan: #7dd3fc;
+  --accent-teal: #34d399;
+  --accent-gold: #fde047;
+  --accent-magenta: #fb7185;
+  --accent-purple: #c084fc;
+  --accent-blue: #60a5fa;
 
   /* Agent Identity Colors */
-  --agent-tech-lead: #448aff;
-  --agent-product-manager: #ffd600;
-  --agent-qa-engineer: #00e5ff;
-  --agent-security-auditor: #ff006e;
+  --agent-tech-lead: #60a5fa;
+  --agent-product-manager: #fde047;
+  --agent-qa-engineer: #7dd3fc;
+  --agent-security-auditor: #fb7185;
 
   /* Status */
-  --status-success: #00e676;
-  --status-error: #ff1744;
-  --status-warning: #ffab00;
-  --status-pending: rgba(255, 255, 255, 0.25);
-  --status-active: #448aff;
+  --status-success: #34d399;
+  --status-error: #fb7185;
+  --status-warning: #fbbf24;
+  --status-pending: rgba(255, 255, 255, 0.1);
+  --status-active: #60a5fa;
 
   /* Text */
-  --text-primary: rgba(255, 255, 255, 0.95);
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  --text-tertiary: rgba(255, 255, 255, 0.35);
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
   --text-accent: var(--accent-cyan);
 
   /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   /* Spacing */
@@ -63,10 +63,10 @@
   --gap-2xl: 48px;
 
   /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
   /* Transitions */
@@ -94,7 +94,11 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-deep);
+  background-color: var(--bg-deep);
+  background-image: 
+    radial-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-attachment: fixed;
   color: var(--text-primary);
   line-height: 1.5;
   overflow-x: hidden;
@@ -145,12 +149,9 @@ body {
 
 .dashboard-header h1 {
   font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
 }
 
 .dashboard-header .subtitle {
@@ -837,3 +838,83 @@ body {
     flex-direction: column;
   }
 }
+
+/* ─── Cyber Redesign Overrides (YC/Vercel Aesthetic) ───────────────────────── */
+.console-card {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+.console-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+
+.glow-pill {
+  box-shadow: 0 0 10px currentColor;
+}
+
+@keyframes laser-sweep {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.laser-line {
+  position: relative;
+  overflow: hidden;
+}
+.laser-line::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 30%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+  animation: laser-sweep 3s ease-in-out infinite;
+}
+
+.budget-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  transition: background 0.2s;
+}
+.budget-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 8px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent-cyan);
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--accent-cyan);
+  transition: transform 0.1s, background 0.2s;
+}
+.budget-slider::-webkit-slider-thumb:hover {
+  transform: scaleY(1.25);
+  background: #ffffff;
+  box-shadow: 0 0 12px #ffffff;
+}
+

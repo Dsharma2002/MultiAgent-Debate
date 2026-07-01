@@ -1,89 +1,43 @@
 # ─── Shared Vocabulary Schema ──────────────────────────────────────────────────
-# All agents must parse and emit data matching these exact keys.
-# No synonyms permitted (e.g., do not use 'cost' for 'budget_allocation').
 
 vocabulary:
-  proposal_id:
-    type: uuid
+  summary:
+    type: string
     required: true
-    description: "Unique identifier for a proposal"
+    description: "Brief summary of agent contribution"
 
-  tech_feasibility_score:
-    type: float
-    required: false
-    min: 0.0
-    max: 1.0
-    description: "Technical feasibility score (0.0 = infeasible, 1.0 = trivial)"
-
-  budget_allocation:
-    type: integer
-    required: false
-    min: 0
-    unit: USD
-    description: "Budget allocation in US dollars"
-
-  description:
-    type: string
-    required: false
-    description: "Human-readable description of the entry"
-
-  metadata:
-    type: dict
-    required: false
-    description: "Extensible metadata dictionary"
-
-  assessment_type:
-    type: string
-    required: false
-    description: "Type of assessment (technical_feasibility, product_value, quality_assurance, security_audit)"
-
-  architecture_notes:
-    type: string
-    required: false
-    description: "Architecture and design notes from tech assessment"
-
-  priority_score:
-    type: string
-    required: false
-    description: "Priority classification (P0-critical through P4-backlog)"
-
-  roi_assessment:
-    type: string
-    required: false
-    description: "Return on investment assessment"
-
-  edge_cases:
+  claims:
     type: list
     required: false
-    description: "Identified edge cases and failure modes"
+    description: "Proposed claims, designs, or requirements"
 
-  test_requirements:
+  assumptions:
     type: list
     required: false
-    description: "Required test coverage items"
+    description: "Assumptions made"
 
-  risk_level:
+  uncertainties:
+    type: list
+    required: false
+    description: "Areas of uncertainty"
+
+  evidence:
+    type: list
+    required: false
+    description: "Evidence supporting claims"
+
+  recommended_next_action:
     type: string
     required: false
-    description: "Overall risk level (LOW, MEDIUM, HIGH)"
+    description: "Recommendation for next step"
 
-  security_classification:
+  blockers:
+    type: list
+    required: false
+    description: "Blockers requiring loopback"
+    
+  # Adding fallback for testing context dict (which creates a proposal_id)
+  proposal_id:
     type: string
     required: false
-    description: "Security classification level (standard, medium, high, critical, confidential)"
-
-  identified_threats:
-    type: list
-    required: false
-    description: "List of identified security threats"
-
-  security_recommendations:
-    type: list
-    required: false
-    description: "Security recommendations for the proposal"
-
-  peer_validations:
-    type: integer
-    required: false
-    min: 0
-    description: "Number of peer validation approvals received"
+    description: "Legacy proposal ID for testing context compatibility"

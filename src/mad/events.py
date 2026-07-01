@@ -30,6 +30,13 @@ class EventType(str, Enum):
     GATE_DECISION = "gate_decision"
     RETRY = "retry"
     ERROR = "error"
+    
+    # Conversational Debate Events
+    AGENT_THINKING = "agent_thinking"
+    AGENT_PROPOSAL = "agent_proposal"
+    AGENT_OBJECTION = "agent_objection"
+    AGENT_SUPPORT = "agent_support"
+    JUDGE_SYNTHESIS = "judge_synthesis"
 
 
 @dataclass

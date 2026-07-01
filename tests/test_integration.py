@@ -43,7 +43,7 @@ class TestEndToEndPipeline:
         result = orchestrator.run(context)
 
         assert isinstance(result, PipelineResult)
-        assert len(result.step_results) == 4  # All 4 agents ran
+        assert len(result.step_results) == 11  # All 11 agents ran
 
         # At least some entries should be committed
         assert result.ledger_snapshot is not None
@@ -115,7 +115,11 @@ class TestEndToEndPipeline:
         result = orchestrator.run(context)
 
         # Verify steps ran in order
-        expected_order = ["tech_lead", "product_manager", "qa_engineer", "security_auditor"]
+        expected_order = [
+            "discovery", "business_analyst", "solution_deviser", "technical_architect",
+            "data_integration", "builder", "test_qa", "verifier",
+            "business_reviewer", "compliance_risk", "synthesizer"
+        ]
         actual_order = [s.agent_id for s in result.step_results]
         assert actual_order == expected_order
 
@@ -161,4 +165,4 @@ class TestEndToEndPipeline:
         assert "steps_completed" in summary
         assert "steps_failed" in summary
         assert "total_steps" in summary
-        assert summary["total_steps"] == 4
+        assert summary["total_steps"] == 11

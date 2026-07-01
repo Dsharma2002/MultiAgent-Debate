@@ -17,6 +17,9 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -265,49 +268,14 @@ def _run_instrumented_pipeline(
     emitter: EventEmitter,
 ) -> None:
     """
-    Run the pipeline with event instrumentation.
+    Run the LangGraph consensus engine with event streaming.
 
-    This wraps the standard orchestrator with event emission at every step.
+    This replaces the old manual pipeline with a compiled LangGraph StateGraph.
+    Each node in the graph emits PipelineEvents for the dashboard via the emitter
+    passed through LangGraph's configurable context.
     """
-    # Import builtins to trigger registration
-    import mad.agents.builtins.tech_lead  # noqa: F401
-    import mad.agents.builtins.product_manager  # noqa: F401
-    import mad.agents.builtins.qa_engineer  # noqa: F401
-    import mad.agents.builtins.security_auditor  # noqa: F401
-
-    from mad.agents.loader import load_agents_from_yaml
-    from mad.constraints.registry import create_default_registry
-    from mad.constraints.evaluator import ConstraintEvaluator
-    from mad.schemas.vocabulary import VocabularyRegistry
-    from mad.pipeline.gate import VerificationGate
-
-    # Load config
-    vocab = VocabularyRegistry.from_yaml(f"{CONFIG_DIR}/vocabulary.yaml")
-    constraints = create_default_registry()
-    agents = load_agents_from_yaml(f"{CONFIG_DIR}/agents.yaml", constraints)
-
-    # Load pipeline config
-    with open(f"{CONFIG_DIR}/agents.yaml") as f:
-        agents_config = yaml.safe_load(f)
-    pipeline_config = agents_config.get("pipeline", {})
-    execution_order = pipeline_config.get("execution_order", [])
-    min_peer = pipeline_config.get("min_peer_validations", 2)
-    max_retry = pipeline_config.get("max_retry_on_reject", 1)
-
-    # Sort agents by execution order
-    if execution_order:
-        agent_map = {a.agent_id: a for a in agents}
-        agents = [agent_map[aid] for aid in execution_order if aid in agent_map]
-
-    # Create gate
-    gate = VerificationGate(
-        vocabulary=vocab,
-        constraint_registry=constraints,
-        ledger=_ledger,
-        min_peer_validations=min_peer,
-    )
-
-    evaluator = ConstraintEvaluator(constraints)
+    import time
+    from mad.graph import build_consensus_graph, AGENT_META, TOTAL_AGENTS
 
     # ── PIPELINE_START ────────────────────────────────────────────────
     emitter.emit(PipelineEvent(
@@ -315,254 +283,84 @@ def _run_instrumented_pipeline(
         data={
             "context": context,
             "agents": [
-                {"agent_id": a.agent_id, "name": a.name, "specialty": a.core_specialty}
-                for a in agents
+                {"agent_id": aid, "name": meta["name"], "specialty": meta["specialty"]}
+                for aid, meta in AGENT_META.items()
             ],
-            "total_steps": len(agents),
+            "total_steps": TOTAL_AGENTS,
         },
     ))
+    time.sleep(0.3)
 
-    import time
+    # ── Build and run the LangGraph ───────────────────────────────────
+    graph = build_consensus_graph()
 
-    results = []
-    for step_idx, agent in enumerate(agents):
-        peer_agents = [a for a in agents if a.agent_id != agent.agent_id]
+    # Initial state for the Blackboard
+    initial_state = {
+        "proposal_text": context.get("description", context.get("proposal", "")),
+        "proposal_id": context.get("proposal_id", ""),
+        "current_phase": "init",
+        "iteration_count": 0,
+        "consensus_score": 0.0,
+    }
 
-        # ── AGENT_START ───────────────────────────────────────────────
-        emitter.emit(PipelineEvent(
-            event_type=EventType.AGENT_START,
-            agent_id=agent.agent_id,
-            agent_name=agent.name,
-            step_index=step_idx,
-            data={"specialty": agent.core_specialty},
-        ))
-        time.sleep(0.6)  # Pacing for UI animation
-
-        # Retry loop
-        success = False
-        for attempt in range(1, max_retry + 2):
-            # Build context
-            agent_context = dict(context)
-            verified = _ledger.get_all(verified_only=True)
-            agent_context["_ledger_verified_count"] = len(verified)
-            agent_context["_ledger_total_budget"] = _ledger.get_total_budget()
-
-            # ── DRAFT_CREATED ─────────────────────────────────────────
-            try:
-                draft = agent.core_execute(agent_context, _ledger)
-                emitter.emit(PipelineEvent(
-                    event_type=EventType.DRAFT_CREATED,
-                    agent_id=agent.agent_id,
-                    agent_name=agent.name,
-                    step_index=step_idx,
-                    data={
-                        "entry_id": str(draft.entry_id),
-                        "content": draft.content,
-                        "attempt": attempt,
-                    },
-                ))
-                time.sleep(0.4)
-            except Exception as e:
-                emitter.emit(PipelineEvent(
-                    event_type=EventType.ERROR,
-                    agent_id=agent.agent_id,
-                    step_index=step_idx,
-                    data={"error": str(e), "phase": "core_execute"},
-                ))
-                break
-
-            # ── VOCAB_CHECK ───────────────────────────────────────────
-            vocab_errors = vocab.validate_data(draft.content)
-            emitter.emit(PipelineEvent(
-                event_type=EventType.VOCAB_CHECK,
-                agent_id=agent.agent_id,
-                step_index=step_idx,
-                data={
-                    "passed": len(vocab_errors) == 0,
-                    "errors": vocab_errors,
-                    "keys_checked": list(draft.content.keys()),
+    # Run the graph, passing emitter and ledger through config
+    try:
+        final_state = graph.invoke(
+            initial_state,
+            config={
+                "configurable": {
+                    "emitter": emitter,
+                    "ledger": _ledger,
                 },
-            ))
-            time.sleep(0.3)
-
-            if vocab_errors:
-                emitter.emit(PipelineEvent(
-                    event_type=EventType.GATE_DECISION,
-                    agent_id=agent.agent_id,
-                    step_index=step_idx,
-                    data={
-                        "decision": "REJECT",
-                        "reason": "vocabulary_violation",
-                        "errors": vocab_errors,
-                    },
-                ))
-                if attempt <= max_retry:
-                    emitter.emit(PipelineEvent(
-                        event_type=EventType.RETRY,
-                        agent_id=agent.agent_id,
-                        step_index=step_idx,
-                        data={"attempt": attempt + 1, "reason": vocab_errors},
-                    ))
-                    time.sleep(0.3)
-                continue
-
-            # ── CONSTRAINT_CHECK ──────────────────────────────────────
-            constraint_result = evaluator.evaluate(entry=draft, ledger=_ledger)
-            emitter.emit(PipelineEvent(
-                event_type=EventType.CONSTRAINT_CHECK,
-                agent_id=agent.agent_id,
-                step_index=step_idx,
-                data={
-                    "passed": constraint_result.passed,
-                    "violations": constraint_result.violations,
-                },
-            ))
-            time.sleep(0.3)
-
-            if not constraint_result.passed:
-                emitter.emit(PipelineEvent(
-                    event_type=EventType.GATE_DECISION,
-                    agent_id=agent.agent_id,
-                    step_index=step_idx,
-                    data={
-                        "decision": "REJECT",
-                        "reason": "constraint_violation",
-                        "errors": constraint_result.violations,
-                    },
-                ))
-                if attempt <= max_retry:
-                    emitter.emit(PipelineEvent(
-                        event_type=EventType.RETRY,
-                        agent_id=agent.agent_id,
-                        step_index=step_idx,
-                        data={"attempt": attempt + 1, "reason": constraint_result.violations},
-                    ))
-                    time.sleep(0.3)
-                continue
-
-            # ── PEER_AUDIT ────────────────────────────────────────────
-            emitter.emit(PipelineEvent(
-                event_type=EventType.PEER_AUDIT_START,
-                agent_id=agent.agent_id,
-                step_index=step_idx,
-                data={
-                    "peers": [p.agent_id for p in peer_agents],
-                    "min_required": min_peer,
-                },
-            ))
-            time.sleep(0.3)
-
-            approval_count = 0
-            audit_errors = []
-            for peer in peer_agents:
-                audit_result = peer.audit(draft, _ledger)
-                emitter.emit(PipelineEvent(
-                    event_type=EventType.PEER_AUDIT_RESULT,
-                    agent_id=agent.agent_id,
-                    step_index=step_idx,
-                    data={
-                        "auditor_id": peer.agent_id,
-                        "auditor_name": peer.name,
-                        "approved": audit_result.approved,
-                        "reasons": audit_result.rejection_reasons,
-                    },
-                ))
-                time.sleep(0.4)
-
-                if audit_result.approved:
-                    approval_count += 1
-                else:
-                    for r in audit_result.rejection_reasons:
-                        audit_errors.append(f"[{peer.agent_id}] {r}")
-
-            # ── GATE_DECISION ─────────────────────────────────────────
-            all_errors = audit_errors
-            if approval_count < min_peer:
-                all_errors.append(
-                    f"Insufficient approvals: {approval_count}/{min_peer}"
-                )
-
-            if all_errors:
-                emitter.emit(PipelineEvent(
-                    event_type=EventType.GATE_DECISION,
-                    agent_id=agent.agent_id,
-                    step_index=step_idx,
-                    data={
-                        "decision": "REJECT",
-                        "reason": "peer_audit_failure",
-                        "errors": all_errors,
-                        "approvals": approval_count,
-                        "required": min_peer,
-                    },
-                ))
-                if attempt <= max_retry:
-                    emitter.emit(PipelineEvent(
-                        event_type=EventType.RETRY,
-                        agent_id=agent.agent_id,
-                        step_index=step_idx,
-                        data={"attempt": attempt + 1, "reason": all_errors},
-                    ))
-                    time.sleep(0.3)
-                continue
-
-            # COMMIT
-            verified_content = dict(draft.content)
-            verified_content["peer_validations"] = approval_count
-            from mad.schemas.evidence import EvidenceEntry
-
-            latest = _ledger.get_latest()
-            prev_hash = latest.entry_hash if latest else "GENESIS"
-            verified_entry = EvidenceEntry(
-                entry_id=draft.entry_id,
-                timestamp=draft.timestamp,
-                author_agent_id=draft.author_agent_id,
-                content=verified_content,
-                verified_status=True,
-                prev_hash=prev_hash,
-            )
-            committed = _ledger.append(verified_entry)
-
-            emitter.emit(PipelineEvent(
-                event_type=EventType.GATE_DECISION,
-                agent_id=agent.agent_id,
-                step_index=step_idx,
-                data={
-                    "decision": "COMMIT",
-                    "entry_id": str(committed.entry_id),
-                    "entry_hash": committed.entry_hash[:16],
-                    "prev_hash": committed.prev_hash[:16] if committed.prev_hash != "GENESIS" else "GENESIS",
-                    "approvals": approval_count,
-                    "budget_used": _ledger.get_total_budget(),
-                    "content": committed.content,
-                },
-            ))
-            success = True
-            time.sleep(0.3)
-            break
-
-        # ── AGENT_COMPLETE ────────────────────────────────────────────
-        emitter.emit(PipelineEvent(
-            event_type=EventType.AGENT_COMPLETE,
-            agent_id=agent.agent_id,
-            agent_name=agent.name,
-            step_index=step_idx,
-            data={"success": success},
-        ))
-        results.append({"agent_id": agent.agent_id, "success": success})
-        time.sleep(0.5)
-
-    # ── PIPELINE_COMPLETE ─────────────────────────────────────────────
-    snapshot = _ledger.snapshot()
-    emitter.emit(PipelineEvent(
-        event_type=EventType.PIPELINE_COMPLETE,
-        data={
-            "success": all(r["success"] for r in results),
-            "results": results,
-            "ledger": {
-                "total_entries": snapshot.total_entries,
-                "verified_entries": snapshot.verified_entries,
-                "chain_valid": snapshot.chain_valid,
-                "total_budget": _ledger.get_total_budget(),
             },
-        },
-    ))
+        )
+
+        # ── PIPELINE_COMPLETE ─────────────────────────────────────────
+        snapshot = _ledger.snapshot()
+        synthesis = final_state.get("final_synthesis", {})
+
+        emitter.emit(PipelineEvent(
+            event_type=EventType.PIPELINE_COMPLETE,
+            data={
+                "success": True,
+                "results": [
+                    {"agent_id": t.get("agent_id", "unknown"), "success": True}
+                    for t in final_state.get("agent_trace", [])
+                ],
+                "consensus": {
+                    "score": final_state.get("consensus_score", 0.0),
+                    "verdict": synthesis.get("verdict", "UNKNOWN"),
+                    "executive_summary": synthesis.get("executive_summary", ""),
+                },
+                "ledger": {
+                    "total_entries": snapshot.total_entries,
+                    "verified_entries": snapshot.verified_entries,
+                    "chain_valid": snapshot.chain_valid,
+                    "total_budget": _ledger.get_total_budget(),
+                },
+            },
+        ))
+
+    except Exception as e:
+        logger.error(f"LangGraph pipeline failed: {e}", exc_info=True)
+        emitter.emit(PipelineEvent(
+            event_type=EventType.ERROR,
+            data={"error": str(e), "phase": "langgraph_execution"},
+        ))
+        # Emit pipeline complete with failure
+        snapshot = _ledger.snapshot()
+        emitter.emit(PipelineEvent(
+            event_type=EventType.PIPELINE_COMPLETE,
+            data={
+                "success": False,
+                "results": [],
+                "ledger": {
+                    "total_entries": snapshot.total_entries,
+                    "verified_entries": snapshot.verified_entries,
+                    "chain_valid": snapshot.chain_valid,
+                    "total_budget": _ledger.get_total_budget(),
+                },
+                "error": str(e),
+            },
+        ))
+

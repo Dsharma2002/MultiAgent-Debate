@@ -175,60 +175,93 @@ export default function DetailInspector({ entry, onClose }) {
         ))}
       </div>
 
-      {/* Lists Section (Threats, Edge Cases, Test Requirements) */}
+      {/* Lists Section (Claims, Disagreements, Audit Trail) */}
       {listBlocks.length > 0 && (
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 'var(--gap-md)',
+            gridTemplateColumns: '1fr',
+            gap: 'var(--gap-lg)',
             marginTop: 'var(--gap-md)',
             borderTop: '1px solid var(--glass-border)',
             paddingTop: 'var(--gap-md)',
           }}
         >
           {listBlocks.map((lb) => (
-            <div key={lb.key} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-sm)' }}>
+            <div key={lb.key} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-md)' }}>
               <span
                 style={{
-                  fontSize: '0.7rem',
+                  fontSize: '0.8rem',
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   color: 'var(--text-secondary)',
                   letterSpacing: '0.05em',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '8px',
                 }}
               >
-                <span>{lb.key === 'identified_threats' ? '🔥' : lb.key === 'edge_cases' ? '⚠' : '✓'}</span>
+                <span>{lb.key === 'claims' ? '💡' : lb.key === 'resolved_disagreements' ? '⚖️' : lb.key === 'audit_trail' ? '📜' : '✓'}</span>
                 {lb.label} ({lb.value.length})
               </span>
               <div
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
+                  display: 'grid',
+                  gridTemplateColumns: lb.key === 'claims' ? 'repeat(auto-fit, minmax(320px, 1fr))' : '1fr',
+                  gap: 'var(--gap-sm)',
                 }}
               >
-                {lb.value.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="glass-sm"
-                    style={{
-                      padding: '8px 12px',
-                      fontSize: '0.75rem',
-                      color: 'var(--text-secondary)',
-                      background: 'rgba(255,255,255,0.01)',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '8px',
-                    }}
-                  >
-                    <span style={{ color: agent.color, fontWeight: 700 }}>•</span>
-                    <span>{item}</span>
-                  </div>
-                ))}
+                {lb.value.map((item, idx) => {
+                  if (lb.key === 'claims') {
+                    // Render complex Claim object
+                    return (
+                      <div
+                        key={idx}
+                        className="glass"
+                        style={{
+                          padding: 'var(--gap-md)',
+                          borderRadius: 'var(--radius-md)',
+                          borderLeft: `3px solid ${agent.color}`,
+                          background: 'rgba(255,255,255,0.02)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
+                        }}
+                      >
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          "{item.claim}"
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          <span style={{ color: 'var(--accent-cyan)' }}>Evidence:</span> {item.evidence}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                          <span style={{ color: 'var(--accent-purple)' }}>Assumptions:</span> {item.assumptions}
+                        </div>
+                        <div style={{ alignSelf: 'flex-end', fontSize: '0.7rem', color: 'var(--accent-gold)', fontWeight: 700 }}>
+                          Confidence: {Math.round(item.confidence * 100)}%
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Render standard string list (e.g. audit_trail, resolved_disagreements)
+                  return (
+                    <div
+                      key={idx}
+                      className="glass-sm"
+                      style={{
+                        padding: '12px 16px',
+                        fontSize: '0.8rem',
+                        lineHeight: '1.4',
+                        color: 'var(--text-secondary)',
+                        background: 'rgba(255,255,255,0.01)',
+                        borderLeft: `2px solid ${lb.key === 'resolved_disagreements' ? 'var(--accent-pink)' : 'var(--text-tertiary)'}`,
+                      }}
+                    >
+                      {item}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}

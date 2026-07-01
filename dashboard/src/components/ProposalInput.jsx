@@ -4,6 +4,7 @@ import { API_URL } from '../utils/constants';
 export default function ProposalInput({ onRun, isRunning }) {
   const [description, setDescription] = useState('');
   const [budget, setBudget] = useState(2000);
+  const [overlap, setOverlap] = useState(0.5);
   const [scenarios, setScenarios] = useState([]);
   const [activeScenario, setActiveScenario] = useState(null);
 
@@ -26,6 +27,7 @@ export default function ProposalInput({ onRun, isRunning }) {
     const context = {
       description,
       budget_allocation: budget,
+      context_overlap_ratio: overlap,
       complexity: selected?.complexity || 'medium',
       user_impact: selected?.user_impact || 'medium',
       effort: selected?.effort || 'medium',
@@ -70,23 +72,47 @@ export default function ProposalInput({ onRun, isRunning }) {
           rows={3}
         />
         <div className="proposal-controls">
-          <div className="budget-slider-group">
-            <div className="budget-slider-label">
-              <span>Budget</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-gold)' }}>
-                ${budget.toLocaleString()}
-              </span>
+          <div className="budget-slider-group" style={{ display: 'flex', gap: 'var(--gap-lg)', flex: 1 }}>
+            <div style={{ flex: 1 }}>
+              <div className="budget-slider-label">
+                <span>Budget</span>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-gold)' }}>
+                  ${budget.toLocaleString()}
+                </span>
+              </div>
+              <input
+                type="range"
+                className="budget-slider"
+                min={100}
+                max={5000}
+                step={100}
+                value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))}
+                disabled={isRunning}
+              />
             </div>
-            <input
-              type="range"
-              className="budget-slider"
-              min={100}
-              max={5000}
-              step={100}
-              value={budget}
-              onChange={(e) => setBudget(Number(e.target.value))}
-              disabled={isRunning}
-            />
+            
+            <div style={{ flex: 1 }}>
+              <div className="budget-slider-label">
+                <span>Context Overlap Size</span>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                  {Math.round(overlap * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                className="budget-slider"
+                min={0.1}
+                max={1.0}
+                step={0.1}
+                value={overlap}
+                onChange={(e) => setOverlap(Number(e.target.value))}
+                disabled={isRunning}
+                style={{
+                  '--accent': 'var(--accent-cyan)',
+                }}
+              />
+            </div>
           </div>
           <button
             className={`run-button ${isRunning ? 'running' : ''}`}

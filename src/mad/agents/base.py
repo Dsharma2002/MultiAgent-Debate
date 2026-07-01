@@ -24,6 +24,7 @@ class AuditResult:
 
     approved: bool
     auditor_id: str
+    comments: list[str] = field(default_factory=list)
     rejection_reasons: list[str] = field(default_factory=list)
 
     def __str__(self) -> str:
@@ -77,11 +78,15 @@ class BaseAgent(ABC):
         core_specialty: str,
         audit_constraints: list[str],
         constraint_registry: ConstraintRegistry | None = None,
+        system_prompt: str = "You are a specialized agent.",
+        model: str = "gpt-4o",
     ) -> None:
         self.agent_id = agent_id
         self.name = name
         self.core_specialty = core_specialty
         self.audit_constraints = audit_constraints
+        self.system_prompt = system_prompt
+        self.model = model
         self._constraint_evaluator: ConstraintEvaluator | None = None
 
         if constraint_registry:
@@ -90,6 +95,66 @@ class BaseAgent(ABC):
     def set_constraint_registry(self, registry: ConstraintRegistry) -> None:
         """Set or update the constraint registry for this agent."""
         self._constraint_evaluator = ConstraintEvaluator(registry)
+
+    def _execute_llm(self, user_prompt: str) -> dict[str, Any]:
+        """
+        Executes an LLM call using OpenAI's structured outputs.
+        Requires OPENAI_API_KEY to be set in the environment.
+        """
+        import os
+        from openai import OpenAI
+        import json
+        from mad.schemas.enterprise import AgentOutput
+        
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            # Fallback for testing without an API key
+            return {
+                "summary": f"{self.name} mocked summary.",
+                "claims": ["Mocked claim"],
+                "assumptions": ["Mocked assumption"],
+                "uncertainties": [],
+                "evidence": ["Mocked evidence"],
+                "recommended_next_action": "Proceed.",
+                "blockers": []
+            }
+
+        client = OpenAI(api_key=api_key)
+        response = client.beta.chat.completions.parse(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=AgentOutput,
+        )
+        return json.loads(response.choices[0].message.content)
+
+    def _execute_llm_audit(self, peer_entry_content: dict[str, Any]) -> dict[str, Any]:
+        import os
+        from openai import OpenAI
+        import json
+        from mad.schemas.enterprise import AuditOutput
+        
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            return {
+                "approved": True,
+                "rejection_reasons": []
+            }
+
+        client = OpenAI(api_key=api_key)
+        audit_prompt = f"Audit the following peer entry for correctness, architectural soundness, and business alignment:\n{json.dumps(peer_entry_content, indent=2)}"
+        
+        response = client.beta.chat.completions.parse(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": f"{self.system_prompt} Your task is to AUDIT upstream work."},
+                {"role": "user", "content": audit_prompt},
+            ],
+            response_format=AuditOutput,
+        )
+        return json.loads(response.choices[0].message.content)
 
     @abstractmethod
     def core_execute(
